@@ -352,6 +352,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "migrate": "node scripts/manage-roles.js apply",
+    "migration": "node scripts/manage-roles.js apply",
     "db:reset": "node scripts/manage-roles.js reset",
     "check-roles": "node scripts/manage-roles.js check",
     "prisma:generate": "npx prisma generate",
