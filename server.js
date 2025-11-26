@@ -3,26 +3,75 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Import configuration validator
+const { getConfig, printConfigSummary } = require('./src/utils/configValidator');
+
+// Validate and get configuration
+const config = getConfig();
+
+// Print configuration summary
+printConfigSummary();
+
 // Import database configuration from config folder
-const { 
-  getConnectionPool, 
-  getDatabaseHealth, 
+const {
+  getConnectionPool,
+  getDatabaseHealth,
   getEnvironment,
   testConnection,
-  getDatabaseConfig 
+  getDatabaseConfig
 } = require('./config/database.js');
+
+// Import Redis client
+const redisClient = require('./src/utils/redis');
 
 // Import Prisma Client
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.PORT || 3000;
+
+const { apiLimiter } = require('./src/middleware/rateLimiter');
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: config.CORS_ORIGIN,
+  credentials: true
+}));
+
+// Enable compression if configured
+if (config.COMPRESSION_ENABLED) {
+  const compression = require('compression');
+  app.use(compression({
+    level: config.COMPRESSION_LEVEL
+  }));
+}
+
+// Enable security headers if configured
+if (config.HELMET_ENABLED) {
+  const helmet = require('helmet');
+  app.use(helmet({
+    frameguard: { action: config.FRAMEGUARD_ACTION },
+    hsts: {
+      maxAge: config.HSTS_MAX_AGE,
+      includeSubDomains: config.FORCE_HTTPS
+    }
+  }));
+}
+
+// Trust proxy if configured
+if (config.TRUST_PROXY) {
+  app.set('trust proxy', 1);
+}
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
+
+// Apply general rate limiting to all API routes
+if (config.RATE_LIMIT_MAX_REQUESTS > 0) {
+  app.use('/api/', apiLimiter);
+}
 
 // Get database configuration
 const dbConfig = getDatabaseConfig();
@@ -185,6 +234,10 @@ app.get('/api/migration', (req, res) => {
 
 // Import routes
 const rolesRoutes = require('./src/routes/roles');
+const authRoutes = require('./src/routes/auth');
+const employeeRoutes = require('./src/routes/employees');
+const fileRoutes = require('./src/routes/files');
+const importExportRoutes = require('./src/routes/importExport');
 
 // Middleware
 app.use(cors());
@@ -192,7 +245,13 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/import', importExportRoutes);
+app.use('/api/export', importExportRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/docs', swaggerRoutes);
 
 // ==================== ROOT ROUTE ====================
 
@@ -210,10 +269,16 @@ app.get('/api/info', (req, res) => {
     database: 'MySQL (XAMPP)',
     endpoints: {
       api_health: '/api/health',
-      api_database: '/api/database', 
+      api_database: '/api/database',
       api_hello: '/api/hello',
       api_migration: '/api/migration',
-      api_roles: '/api/roles - Role management API'
+      api_auth: '/api/auth - Authentication API',
+      api_employees: '/api/employees - Employee management API',
+      api_files: '/api/files - File management API',
+      api_import: '/api/import - Import data API',
+      api_export: '/api/export - Export data API',
+      api_roles: '/api/roles - Role management API',
+      api_docs: '/api/docs - API Documentation (Swagger)'
     },
     timestamp: new Date().toISOString()
   });
@@ -244,6 +309,14 @@ async function startServer() {
   // Test database connection on startup
   await testDatabaseConnection();
   
+  // Initialize Redis connection
+  const redisConnected = await redisClient.connect();
+  if (redisConnected) {
+    console.log('✅ Redis: Connected successfully');
+  } else {
+    console.log('⚠️  Redis: Connection failed - continuing without cache');
+  }
+  
   app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
     console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
@@ -253,7 +326,28 @@ async function startServer() {
   });
 }
 
+// Apply error handling to all routes
+app.use(errorHandler);
+
+// 404 handler
+app.use(notFoundHandler);
+
 startServer().catch(error => {
   console.error('❌ Failed to start server:', error);
   process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n🔄 Gracefully shutting down...');
+  await redisClient.disconnect();
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🔄 Gracefully shutting down...');
+  await redisClient.disconnect();
+  await prisma.$disconnect();
+  process.exit(0);
 });

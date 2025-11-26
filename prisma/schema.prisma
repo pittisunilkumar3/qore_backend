@@ -28,9 +28,154 @@ model Role {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
 
+  // Relations
+  employeeRoles EmployeeRole[]
+
   // Indexes
   @@map("roles")
   @@index([branchId])
   @@index([isSystem])
   @@index([isActive])
+}
+
+model Employee {
+  id                        Int      @id @default(autoincrement())
+  employeeId                String   @unique @map("employee_id") @db.VarChar(50)
+  firstName                 String   @map("first_name") @db.VarChar(100)
+  lastName                  String?  @map("last_name") @db.VarChar(100)
+  email                     String?  @db.VarChar(100)
+  phone                     String?  @db.VarChar(20)
+  password                  String   @db.VarChar(255)
+  gender                    Gender?
+  dob                       DateTime? @map("dob") @db.Date
+  photo                     String?  @db.VarChar(255)
+  position                  String?  @db.VarChar(100)
+  qualification             String?  @db.VarChar(200)
+  workExperience            String?  @map("work_experience") @db.VarChar(200)
+  hireDate                  DateTime? @map("hire_date") @db.Date
+  dateOfLeaving             DateTime? @map("date_of_leaving") @db.Date
+  employmentStatus          EmploymentStatus @default(FULL_TIME) @map("employment_status")
+  contractType              String?  @map("contract_type") @db.VarChar(20)
+  workShift                 String?  @map("work_shift") @db.VarChar(50)
+  currentLocation           String?  @map("current_location") @db.VarChar(100)
+  reportingTo               Int?     @map("reporting_to")
+  emergencyContact          String?  @map("emergency_contact") @db.VarChar(20)
+  emergencyContactRelation String?  @map("emergency_contact_relation") @db.VarChar(50)
+  maritalStatus             String?  @map("marital_status") @db.VarChar(20)
+  fatherName                String?  @map("father_name") @db.VarChar(100)
+  motherName                String?  @map("mother_name") @db.VarChar(100)
+  localAddress              String?  @map("local_address") @db.Text
+  permanentAddress          String?  @map("permanent_address") @db.Text
+  bankAccountName           String?  @map("bank_account_name") @db.VarChar(100)
+  bankAccountNo            String?  @map("bank_account_no") @db.VarChar(50)
+  bankName                 String?  @map("bank_name") @db.VarChar(100)
+  bankBranch               String?  @map("bank_branch") @db.VarChar(100)
+  ifscCode                 String?  @map("ifsc_code") @db.VarChar(20)
+  basicSalary              Decimal? @map("basic_salary") @db.Decimal(10, 2)
+  facebook                 String?  @db.VarChar(255)
+  twitter                  String?  @db.VarChar(255)
+  linkedin                 String?  @db.VarChar(255)
+  instagram                String?  @db.VarChar(255)
+  resume                   String?  @db.VarChar(255)
+  joiningLetter            String?  @map("joining_letter") @db.VarChar(255)
+  otherDocuments           String?  @map("other_documents") @db.Text
+  notes                    String?  @db.Text
+  isSuperadmin             Boolean  @default(false) @map("is_superadmin")
+  isActive                 Boolean  @default(true) @map("is_active")
+  createdBy                Int?     @map("created_by")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  employeeRoles EmployeeRole[]
+  subordinates   Employee[] @relation("EmployeeHierarchy")
+  manager        Employee?   @relation("EmployeeHierarchy", fields: [reportingTo], references: [id])
+
+  // Indexes
+  @@map("employees")
+  @@index([email])
+  @@index([reportingTo])
+  @@index([createdBy])
+  @@index([employeeId])
+  @@index([isActive])
+  @@index([isSuperadmin])
+}
+
+model EmployeeRole {
+  id        Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  roleId    Int      @map("role_id")
+  branchId  Int?     @map("branch_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdBy  Int?     @map("created_by")
+  updatedBy  Int?     @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  employee Employee @relation(fields: [employeeId], references: [id])
+  role     Role     @relation(fields: [roleId], references: [id])
+
+  // Indexes
+  @@map("employee_roles")
+  @@index([employeeId])
+  @@index([roleId])
+  @@index([branchId])
+  @@index([isPrimary])
+  @@index([isActive])
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int?     @map("employee_id")
+  action      String   @db.VarChar(100)
+  entityType  String   @map("entity_type") @db.VarChar(50)
+  entityId    Int?     @map("entity_id")
+  oldValue    String?  @map("old_value") @db.Text
+  newValue    String?  @map("new_value") @db.Text
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Indexes
+  @@map("activity_logs")
+  @@index([employeeId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(255)
+  employeeId Int      @map("employee_id")
+  expiresAt DateTime @map("expires_at")
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Indexes
+  @@map("refresh_tokens")
+  @@index([employeeId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([isRevoked])
+}
+
+// Enums
+enum Gender {
+  MALE   @map("male")
+  FEMALE @map("female")
+  OTHER  @map("other")
+}
+
+enum EmploymentStatus {
+  FULL_TIME @map("full-time")
+  PART_TIME @map("part-time")
+  CONTRACT  @map("contract")
+  INTERN    @map("intern")
+  TERMINATED @map("terminated")
 }
