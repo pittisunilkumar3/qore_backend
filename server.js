@@ -28,6 +28,9 @@ const redisClient = require('./src/utils/redis');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import error handlers
+const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
+
 const app = express();
 const PORT = config.PORT || 3000;
 
@@ -238,6 +241,7 @@ const authRoutes = require('./src/routes/auth');
 const employeeRoutes = require('./src/routes/employees');
 const fileRoutes = require('./src/routes/files');
 const importExportRoutes = require('./src/routes/importExport');
+const swaggerRoutes = require('./src/routes/swagger');
 
 // Middleware
 app.use(cors());

@@ -2,7 +2,7 @@ const express = require('express');
 const AuthController = require('../controllers/AuthController');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, sanitizeBody, loginSchema, refreshTokenSchema, logoutSchema, changePasswordSchema } = require('../validators/authValidator');
-const { createAccountLockout, apiLimiter } = require('../middleware/rateLimiter');
+const { createAccountLockout, apiLimiter, strictLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 

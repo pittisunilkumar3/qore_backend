@@ -1,9 +1,8 @@
 const express = require('express');
 const EmployeeController = require('../controllers/EmployeeController');
 const { authenticateToken, requireRole, requirePrimaryRole } = require('../middleware/auth');
+const { validate, sanitizeBody } = require('../validators/authValidator');
 const { 
-  validate, 
-  sanitizeBody,
   createEmployeeSchema, 
   updateEmployeeSchema, 
   employeeQuerySchema, 

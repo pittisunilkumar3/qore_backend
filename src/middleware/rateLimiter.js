@@ -3,6 +3,9 @@ const { PrismaClient } = require('@prisma/client');
 const redisClient = require('../utils/redis');
 const prisma = new PrismaClient();
 
+// In-memory storage for failed login attempts (fallback when Redis is not available)
+const failedAttempts = new Map();
+
 /**
  * Rate limiting middleware for API endpoints
  * @param {number} windowMs - Time window in milliseconds
@@ -21,14 +24,6 @@ const createRateLimiter = (windowMs = 15 * 60 * 1000, max = 100, message = null)
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Store IP-based limits
-    keyGenerator: (req) => {
-      return req.ip;
-    },
-    // Custom skip function for successful requests
-    skip: (req) => {
-      return req.rateLimit?.remaining > 0;
-    },
     // Custom handler for rate limit exceeded
     handler: (req, res) => {
       const remaining = req.rateLimit?.remaining || 0;

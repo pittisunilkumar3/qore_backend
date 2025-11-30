@@ -20,7 +20,7 @@ beforeAll(async () => {
   });
   
   // Create test admin user
-  const hashedPassword = await require('bcrypt').hash('TestPassword123!', 12);
+  const hashedPassword = await require('bcryptjs').hash('TestPassword123!', 12);
   
   await prisma.employee.create({
     data: {

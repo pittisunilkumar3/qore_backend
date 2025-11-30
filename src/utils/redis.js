@@ -6,31 +6,26 @@ class RedisClient {
     this.client = null;
     this.isConnected = false;
     this.defaultTTL = 3600; // 1 hour default TTL
+    this.connectionRefused = false;
   }
 
   async connect() {
     try {
       this.client = redis.createClient({
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
+        socket: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: process.env.REDIS_PORT || 6379,
+          reconnectStrategy: (retries) => {
+            // Stop retrying after 3 attempts
+            if (retries > 3) {
+              logger.warn('Redis connection failed after 3 attempts - continuing without cache');
+              return false; // Stop retrying
+            }
+            return Math.min(retries * 100, 3000);
+          }
+        },
         password: process.env.REDIS_PASSWORD || undefined,
-        db: process.env.REDIS_DB || 0,
-        retry_strategy: (options) => {
-          if (options.error && options.error.code === 'ECONNREFUSED') {
-            logger.error('Redis server connection refused');
-            return new Error('Redis server connection refused');
-          }
-          if (options.total_retry_time > 1000 * 60 * 60) {
-            logger.error('Redis retry time exhausted');
-            return new Error('Retry time exhausted');
-          }
-          if (options.attempt > 10) {
-            logger.error('Redis retry attempts exhausted');
-            return undefined;
-          }
-          // Retry after 3 seconds
-          return Math.min(options.attempt * 100, 3000);
-        }
+        database: process.env.REDIS_DB || 0
       });
 
       this.client.on('connect', () => {
@@ -39,7 +34,11 @@ class RedisClient {
       });
 
       this.client.on('error', (err) => {
-        logger.error('Redis client error:', err);
+        // Only log once, don't spam
+        if (err.code === 'ECONNREFUSED' && !this.connectionRefused) {
+          logger.warn('Redis server not available - continuing without cache');
+          this.connectionRefused = true;
+        }
         this.isConnected = false;
       });
 
@@ -48,15 +47,12 @@ class RedisClient {
         this.isConnected = false;
       });
 
-      this.client.on('reconnecting', () => {
-        logger.info('Redis client reconnecting');
-      });
-
       await this.client.connect();
       return true;
     } catch (error) {
-      logger.error('Failed to connect to Redis:', error);
+      logger.warn('Redis not available - continuing without cache');
       this.isConnected = false;
+      this.client = null;
       return false;
     }
   }

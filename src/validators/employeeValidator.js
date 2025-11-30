@@ -1,9 +1,9 @@
 const { z } = require('zod');
 
 /**
- * Employee creation validation schema
+ * Base employee validation schema
  */
-const createEmployeeSchema = z.object({
+const baseEmployeeSchema = z.object({
   employeeId: z.string()
     .min(1, 'Employee ID is required')
     .max(50, 'Employee ID must be less than 50 characters')
@@ -144,7 +144,12 @@ const createEmployeeSchema = z.object({
   roleIds: z.array(z.number().int().positive())
     .min(1, 'At least one role must be assigned')
     .optional()
-}).refine(data => {
+});
+
+/**
+ * Employee creation validation schema with refinements
+ */
+const createEmployeeSchema = baseEmployeeSchema.refine(data => {
   // Business logic validation
   if (data.dateOfLeaving && data.hireDate) {
     const hireDate = new Date(data.hireDate);
@@ -160,7 +165,7 @@ const createEmployeeSchema = z.object({
 /**
  * Employee update validation schema
  */
-const updateEmployeeSchema = createEmployeeSchema.partial().extend({
+const updateEmployeeSchema = baseEmployeeSchema.partial().extend({
   id: z.number()
     .int('ID must be an integer')
     .positive('ID must be a positive number')
